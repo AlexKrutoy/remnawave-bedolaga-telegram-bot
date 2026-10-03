@@ -223,8 +223,9 @@ class LirPayPaymentMixin:
                 logger.info('LirPay callback: событие не по платежу, пропускаем', lirpay_event=event)
                 return True
             # Внутренний служебный ключ, проставляется вебхук-маршрутом
-            # (значение заголовка X-Lirpay-Mode), в бизнес-поля не попадает.
-            payload.pop('_lirpay_mode', None)
+            # (значение заголовка X-Lirpay-Mode) — читаем и убираем, чтобы он
+            # не попал в бизнес-поля и сохранённый callback_payload.
+            mode_from_header = str(payload.pop('_lirpay_mode', '') or '').lower()
 
             def _field(*names: str) -> Any:
                 for name in names:
@@ -295,7 +296,7 @@ class LirPayPaymentMixin:
             # Режим ключа: live-события приходят только live-ключу, но
             # тестовое окружение «оплачивает» эмулятором без денег — реальный
             # баланс по таким событиям начислять нельзя.
-            mode = str(_field('mode') or payload.get('_lirpay_mode') or '').lower()
+            mode = str(_field('mode') or mode_from_header or '').lower()
             is_test = bool(payload.get('test_mode') or source.get('test_mode') or mode == 'test')
             if is_test:
                 logger.error(
