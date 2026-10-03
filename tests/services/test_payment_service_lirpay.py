@@ -253,10 +253,10 @@ async def test_webhook_success_credits_balance(monkeypatch: pytest.MonkeyPatch) 
     payment = FakeLirPayPayment()
 
     async def fake_get_by_order_id(db, order_id):
-        return paymentayment
+        return payment
 
     async def fake_get_by_invoice_id(db, invoice_id):
-        return paymentayment
+        return payment
 
     monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_order_id', fake_get_by_order_id)
     monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_invoice_id', fake_get_by_invoice_id)
@@ -290,11 +290,13 @@ async def test_webhook_test_mode_never_credits(monkeypatch: pytest.MonkeyPatch) 
         'get_lirpay_payment_by_invoice_id',
         AsyncMock(return_value=payment),
     )
-    monkeypatch.setattr(
-        lirpay_crud_module,
-        'update_lirpay_payment_status',
-        AsyncMock(side_effect=lambda db, p, **kw: p),
-    )
+    async def fake_update(db, p, **kw):
+        p.status = kw.get('status', p.status)
+        if kw.get('is_paid') is not None:
+            p.is_paid = kw['is_paid']
+        return p
+
+    monkeypatch.setattr(lirpay_crud_module, 'update_lirpay_payment_status', fake_update)
 
     service = _make_service()
     result = await service.process_lirpay_callback(DummySession(), body)
