@@ -31,6 +31,7 @@ from app.database.models import (
     JupiterPayment,
     KassaAiPayment,
     LavaPayment,
+    LirPayPayment,
     MulenPayPayment,
     OverpayPayment,
     Pal24Payment,
