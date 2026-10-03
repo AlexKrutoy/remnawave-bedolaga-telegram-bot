@@ -290,11 +290,12 @@ async def test_webhook_test_mode_never_credits(monkeypatch: pytest.MonkeyPatch) 
         'get_lirpay_payment_by_invoice_id',
         AsyncMock(return_value=payment),
     )
-    async def fake_update(db, p, **kw):
-        p.status = kw.get('status', p.status)
+
+    async def fake_update(db, payment, **kw):
+        payment.status = kw.get('status', payment.status)
         if kw.get('is_paid') is not None:
-            p.is_paid = kw['is_paid']
-        return p
+            payment.is_paid = kw['is_paid']
+        return payment
 
     monkeypatch.setattr(lirpay_crud_module, 'update_lirpay_payment_status', fake_update)
 
