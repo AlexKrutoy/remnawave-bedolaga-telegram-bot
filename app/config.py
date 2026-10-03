@@ -1114,6 +1114,31 @@ class Settings(BaseSettings):
     CISPAY_SBP_ENABLED: bool = False
     CISPAY_SBP_DISPLAY_NAME: str = 'СБП (CisPay)'
 
+    # LirPay (lirpay.org, Integration API v2: СБП, карты, крипта на hosted-странице)
+    LIRPAY_ENABLED: bool = False
+    LIRPAY_PUBLIC_KEY: str | None = None  # lpk_live_… / lpk_test_…
+    LIRPAY_SECRET_KEY: str | None = None  # lsk_live_… / lsk_test_… (показывается один раз)
+    # Секрет вебхуков — ОТДЕЛЬНЫЙ от ключей API, выдаётся при настройке вебхука
+    # в кабинете LirPay (PUT /webhook возвращает его один раз)
+    LIRPAY_WEBHOOK_SECRET: str | None = None
+    LIRPAY_PROJECT_ID: str | None = None  # UUID одобренного проекта (GET /projects)
+    LIRPAY_BASE_URL: str = 'https://lirpay.org'
+    LIRPAY_DISPLAY_NAME: str = 'LirPay'
+    LIRPAY_CURRENCY: str = 'RUB'
+    LIRPAY_MIN_AMOUNT_KOPEKS: int = 10000  # 100₽
+    LIRPAY_MAX_AMOUNT_KOPEKS: int = 10000000  # 100 000₽
+    LIRPAY_WEBHOOK_PATH: str = '/lirpay-webhook'
+    # Срок жизни ссылки (expires_in_minutes, положительное число)
+    LIRPAY_PAYMENT_LIFETIME_MINUTES: int = 60
+    # Sub-методы (method_mode=single). Если не включён ни один, показывается одна
+    # кнопка «LirPay», а способ покупатель выбирает на странице оплаты.
+    LIRPAY_SBP_ENABLED: bool = False
+    LIRPAY_SBP_DISPLAY_NAME: str = 'СБП (LirPay)'
+    LIRPAY_CARD_ENABLED: bool = False
+    LIRPAY_CARD_DISPLAY_NAME: str = 'Карта (LirPay)'
+    LIRPAY_CRYPTO_ENABLED: bool = False
+    LIRPAY_CRYPTO_DISPLAY_NAME: str = 'Крипта (LirPay)'
+
     # Cashera (api.cashera.cash, server-to-server; расчёты мерчанту в USDT, приём — только RUB)
     CASHERA_ENABLED: bool = False
     CASHERA_API_KEY: str | None = None  # X-Api-Key — публичный ключ (pk_...)
@@ -3304,6 +3329,64 @@ class Settings(BaseSettings):
 
     def get_cispay_sbp_display_name_html(self) -> str:
         return html.escape(self.get_cispay_sbp_display_name())
+
+    def is_lirpay_configured(self) -> bool:
+        """Есть ли учётные данные провайдера — без учёта флага включения.
+
+        Маршрут вебхука регистрируется по этому признаку: если оператор выключил
+        способ, уже созданные ссылки всё равно должны доехать до зачисления.
+        """
+        return bool(
+            self.LIRPAY_PUBLIC_KEY and self.LIRPAY_SECRET_KEY and self.LIRPAY_WEBHOOK_SECRET and self.LIRPAY_PROJECT_ID
+        )
+
+    def is_lirpay_enabled(self) -> bool:
+        # Пустая строка так же непригодна, как None: без ключей запросы не
+        # пройдут, без секрета вебхука подпись подделывается тривиально.
+        return bool(
+            self.LIRPAY_ENABLED
+            and self.LIRPAY_PUBLIC_KEY
+            and self.LIRPAY_SECRET_KEY
+            and self.LIRPAY_WEBHOOK_SECRET
+            and self.LIRPAY_PROJECT_ID
+        )
+
+    def get_lirpay_display_name(self) -> str:
+        name = (self.LIRPAY_DISPLAY_NAME or '').strip()
+        return name or 'LirPay'
+
+    def get_lirpay_display_name_html(self) -> str:
+        return html.escape(self.get_lirpay_display_name())
+
+    def is_lirpay_sbp_enabled(self) -> bool:
+        return self.LIRPAY_SBP_ENABLED and self.is_lirpay_enabled()
+
+    def get_lirpay_sbp_display_name(self) -> str:
+        name = (self.LIRPAY_SBP_DISPLAY_NAME or '').strip()
+        return name or 'СБП (LirPay)'
+
+    def get_lirpay_sbp_display_name_html(self) -> str:
+        return html.escape(self.get_lirpay_sbp_display_name())
+
+    def is_lirpay_card_enabled(self) -> bool:
+        return self.LIRPAY_CARD_ENABLED and self.is_lirpay_enabled()
+
+    def get_lirpay_card_display_name(self) -> str:
+        name = (self.LIRPAY_CARD_DISPLAY_NAME or '').strip()
+        return name or 'Карта (LirPay)'
+
+    def get_lirpay_card_display_name_html(self) -> str:
+        return html.escape(self.get_lirpay_card_display_name())
+
+    def is_lirpay_crypto_enabled(self) -> bool:
+        return self.LIRPAY_CRYPTO_ENABLED and self.is_lirpay_enabled()
+
+    def get_lirpay_crypto_display_name(self) -> str:
+        name = (self.LIRPAY_CRYPTO_DISPLAY_NAME or '').strip()
+        return name or 'Крипта (LirPay)'
+
+    def get_lirpay_crypto_display_name_html(self) -> str:
+        return html.escape(self.get_lirpay_crypto_display_name())
 
     def is_cashera_configured(self) -> bool:
         """Есть ли учётные данные провайдера — без учёта флага включения."""

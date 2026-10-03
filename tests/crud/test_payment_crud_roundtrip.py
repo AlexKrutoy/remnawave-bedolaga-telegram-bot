@@ -18,15 +18,17 @@ from typing import Any
 import pytest
 from sqlalchemy.exc import IntegrityError
 
+import app.database.crud.lirpay as lirpay_crud
 import app.database.crud.paritypay as paritypay_crud
 import app.database.crud.tabpay as tabpay_crud
-from app.database.models import ParityPayPayment, TabPayPayment
+from app.database.models import LirPayPayment, ParityPayPayment, TabPayPayment
 from tests.fixtures.sqlite_memory import memory_session
 
 
 GATEWAYS = [
     pytest.param(tabpay_crud, TabPayPayment, 'tabpay', id='tabpay'),
     pytest.param(paritypay_crud, ParityPayPayment, 'paritypay', id='paritypay'),
+    pytest.param(lirpay_crud, LirPayPayment, 'lirpay', id='lirpay'),
 ]
 
 
