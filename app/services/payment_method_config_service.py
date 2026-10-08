@@ -278,11 +278,7 @@ def _get_method_defaults() -> dict:
             'is_configured': settings.is_lirpay_enabled(),
             'default_min': settings.LIRPAY_MIN_AMOUNT_KOPEKS,
             'default_max': settings.LIRPAY_MAX_AMOUNT_KOPEKS,
-            'available_sub_options': [
-                {'id': 'sbp', 'name': 'СБП'},
-                {'id': 'card', 'name': 'Карта'},
-                {'id': 'crypto', 'name': 'Крипта'},
-            ],
+            # sub-опций нет: способ оплаты выбирается на странице LirPay
         },
         'paritypay': {
             'default_display_name': settings.get_paritypay_display_name(),

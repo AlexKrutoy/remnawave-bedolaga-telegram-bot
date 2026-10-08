@@ -30,7 +30,7 @@ if str(ROOT_DIR) not in sys.path:
 import app.database.crud.lirpay as lirpay_crud_module
 from app.config import settings
 from app.services.lirpay_service import LirPayService, amount_to_kopeks, kopeks_to_amount
-from app.services.payment.lirpay import LIRPAY_FINAL_STATUSES, resolve_lirpay_method
+from app.services.payment.lirpay import LIRPAY_FINAL_STATUSES
 from app.services.payment_service import PaymentService
 
 
@@ -107,7 +107,6 @@ def _enable_lirpay(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, 'LIRPAY_MIN_AMOUNT_KOPEKS', 10000, raising=False)
     monkeypatch.setattr(settings, 'LIRPAY_MAX_AMOUNT_KOPEKS', 10000000, raising=False)
     monkeypatch.setattr(settings, 'LIRPAY_CURRENCY', 'RUB', raising=False)
-    monkeypatch.setattr(settings, 'LIRPAY_PAYMENT_LIFETIME_MINUTES', 30, raising=False)
 
 
 # ---------------------------------------------------------------------------
@@ -128,36 +127,6 @@ def test_amount_to_kopeks_unparseable() -> None:
     assert amount_to_kopeks('abc') is None
     assert amount_to_kopeks(True) is None
     assert amount_to_kopeks(1250.005) is None  # доли копейки
-
-
-# ---------------------------------------------------------------------------
-# resolve_lirpay_method
-# ---------------------------------------------------------------------------
-
-
-def test_resolve_method_explicit_wins(monkeypatch: pytest.MonkeyPatch) -> None:
-    _enable_lirpay(monkeypatch)
-    monkeypatch.setattr(settings, 'LIRPAY_CARD_ENABLED', True, raising=False)
-    monkeypatch.setattr(settings, 'LIRPAY_SBP_ENABLED', True, raising=False)
-    assert resolve_lirpay_method('sbp') == 'sbp'
-    assert resolve_lirpay_method('CARD') == 'card'
-    assert resolve_lirpay_method('crypto') == 'crypto'
-
-
-def test_resolve_method_none_when_multiple_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
-    _enable_lirpay(monkeypatch)
-    monkeypatch.setattr(settings, 'LIRPAY_CARD_ENABLED', True, raising=False)
-    monkeypatch.setattr(settings, 'LIRPAY_SBP_ENABLED', True, raising=False)
-    monkeypatch.setattr(settings, 'LIRPAY_CRYPTO_ENABLED', False, raising=False)
-    assert resolve_lirpay_method(None) is None
-
-
-def test_resolve_method_single_enabled_fixed(monkeypatch: pytest.MonkeyPatch) -> None:
-    _enable_lirpay(monkeypatch)
-    monkeypatch.setattr(settings, 'LIRPAY_CARD_ENABLED', False, raising=False)
-    monkeypatch.setattr(settings, 'LIRPAY_SBP_ENABLED', True, raising=False)
-    monkeypatch.setattr(settings, 'LIRPAY_CRYPTO_ENABLED', False, raising=False)
-    assert resolve_lirpay_method(None) == 'sbp'
 
 
 # ---------------------------------------------------------------------------
@@ -197,7 +166,7 @@ async def test_create_payment_passes_idempotency_and_customer(monkeypatch: pytes
     assert call['amount_kopeks'] == 50000
     assert call['project_id'] == settings.LIRPAY_PROJECT_ID
     assert call['customer_id'] == '123456'
-    assert call['method'] is None  # multi: способ выбирает покупатель
+    assert 'method' not in call  # method_mode=multi: способ выбирает покупатель на странице
 
 
 async def test_create_payment_below_min(monkeypatch: pytest.MonkeyPatch) -> None:

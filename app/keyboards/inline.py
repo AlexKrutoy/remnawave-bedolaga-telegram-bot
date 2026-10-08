@@ -2248,48 +2248,9 @@ def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LAN
         )
         has_direct_payment_methods = True
 
-    if settings.is_lirpay_sbp_enabled():
-        lirpay_sbp_name = settings.get_lirpay_sbp_display_name()
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('PAYMENT_LIRPAY_SBP', f'📱 {lirpay_sbp_name}'),
-                    callback_data=_build_callback('lirpay_sbp'),
-                )
-            ]
-        )
-        has_direct_payment_methods = True
-
-    if settings.is_lirpay_card_enabled():
-        lirpay_card_name = settings.get_lirpay_card_display_name()
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('PAYMENT_LIRPAY_CARD', f'💳 {lirpay_card_name}'),
-                    callback_data=_build_callback('lirpay_card'),
-                )
-            ]
-        )
-        has_direct_payment_methods = True
-
-    if settings.is_lirpay_crypto_enabled():
-        lirpay_crypto_name = settings.get_lirpay_crypto_display_name()
-        keyboard.append(
-            [
-                InlineKeyboardButton(
-                    text=texts.t('PAYMENT_LIRPAY_CRYPTO', f'🪙 {lirpay_crypto_name}'),
-                    callback_data=_build_callback('lirpay_crypto'),
-                )
-            ]
-        )
-        has_direct_payment_methods = True
-
-    if (
-        settings.is_lirpay_enabled()
-        and not settings.is_lirpay_sbp_enabled()
-        and not settings.is_lirpay_card_enabled()
-        and not settings.is_lirpay_crypto_enabled()
-    ):
+    if settings.is_lirpay_enabled():
+        # Одна кнопка: способ оплаты (СБП/карта/крипта) покупатель выбирает
+        # на странице LirPay — методика hosted checkout.
         lirpay_name = settings.get_lirpay_display_name()
         keyboard.append(
             [

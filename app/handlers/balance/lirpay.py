@@ -21,20 +21,6 @@ from app.utils.decorators import error_handler
 logger = structlog.get_logger(__name__)
 
 
-LIRPAY_PAYMENT_METHODS = {'lirpay', 'lirpay_sbp', 'lirpay_card', 'lirpay_crypto'}
-
-LIRPAY_SERVICE_MAP: dict[str, str | None] = {
-    'lirpay': None,
-    'lirpay_sbp': 'sbp',
-    'lirpay_card': 'card',
-    'lirpay_crypto': 'crypto',
-}
-
-
-def _extract_service_type(payment_method: str) -> str | None:
-    return LIRPAY_SERVICE_MAP.get(payment_method)
-
-
 def _check_topup_restriction(db_user: User, texts) -> InlineKeyboardMarkup | None:
     """Проверяет ограничение на пополнение."""
     if not getattr(db_user, 'restriction_topup', False):
@@ -54,23 +40,12 @@ def _bot_return_url() -> str | None:
     return f'https://t.me/{username}' if username else None
 
 
-def _display_name_for_method(payment_method: str) -> str:
-    if payment_method == 'lirpay_sbp':
-        return settings.get_lirpay_sbp_display_name()
-    if payment_method == 'lirpay_card':
-        return settings.get_lirpay_card_display_name()
-    if payment_method == 'lirpay_crypto':
-        return settings.get_lirpay_crypto_display_name()
-    return settings.get_lirpay_display_name()
-
-
 async def _create_lirpay_payment_and_respond(
     message_or_callback,
     db_user: User,
     db: AsyncSession,
     amount_kopeks: int,
     edit_message: bool = False,
-    payment_method_type: str | None = None,
 ):
     """Создаёт платёж LirPay и отправляет ссылку на страницу оплаты."""
     texts = get_texts(db_user.language)
@@ -89,7 +64,6 @@ async def _create_lirpay_payment_and_respond(
         description=description,
         email=getattr(db_user, 'email', None),
         language=db_user.language,
-        payment_method_type=payment_method_type,
         return_url=_bot_return_url(),
     )
 
@@ -134,12 +108,11 @@ async def _create_lirpay_payment_and_respond(
             '💳 <b>Оплата через {name}</b>\n\n'
             'Сумма: <b>{amount}₽</b>\n\n'
             'Нажмите кнопку ниже, чтобы перейти на страницу оплаты.\n'
-            'Счёт действителен {minutes} минут.\n'
+            'Способ оплаты выберите на странице.\n'
             'Баланс будет пополнен автоматически после подтверждения платежа.',
         ).format(
             name=display_name,
             amount=f'{amount_rub:.2f}',
-            minutes=settings.LIRPAY_PAYMENT_LIFETIME_MINUTES,
         )
     else:
         response_text = texts.t(
@@ -204,10 +177,6 @@ async def process_lirpay_payment_amount(
         )
         return
 
-    data = await state.get_data()
-    payment_method = data.get('payment_method', 'lirpay')
-    payment_method_type = _extract_service_type(payment_method)
-
     await state.clear()
 
     await _create_lirpay_payment_and_respond(
@@ -216,7 +185,6 @@ async def process_lirpay_payment_amount(
         db=db,
         amount_kopeks=amount_kopeks,
         edit_message=False,
-        payment_method_type=payment_method_type,
     )
 
 
@@ -224,9 +192,8 @@ async def _start_lirpay_topup_impl(
     callback: types.CallbackQuery,
     db_user: User,
     state: FSMContext,
-    payment_method: str,
 ):
-    """Стартует FSM ввода суммы для LirPay."""
+    """Стартует FSM ввода суммы для LirPay (способ выбирается на странице оплаты)."""
     texts = get_texts(db_user.language)
 
     restriction_kb = _check_topup_restriction(db_user, texts)
@@ -240,12 +207,12 @@ async def _start_lirpay_topup_impl(
         return
 
     await state.set_state(BalanceStates.waiting_for_amount)
-    await state.update_data(payment_method=payment_method)
+    await state.update_data(payment_method='lirpay')
 
     min_amount = settings.LIRPAY_MIN_AMOUNT_KOPEKS // 100
     max_amount = settings.LIRPAY_MAX_AMOUNT_KOPEKS // 100
 
-    display_name = _display_name_for_method(payment_method)
+    display_name = settings.get_lirpay_display_name()
 
     keyboard = await get_topup_amount_keyboard(payment_method, db_user.language)
 
@@ -273,34 +240,5 @@ async def start_lirpay_topup(
     db: AsyncSession,
     state: FSMContext,
 ):
-    await _start_lirpay_topup_impl(callback, db_user, state, 'lirpay')
-
-
-@error_handler
-async def start_lirpay_sbp_topup(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession,
-    state: FSMContext,
-):
-    await _start_lirpay_topup_impl(callback, db_user, state, 'lirpay_sbp')
-
-
-@error_handler
-async def start_lirpay_card_topup(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession,
-    state: FSMContext,
-):
-    await _start_lirpay_topup_impl(callback, db_user, state, 'lirpay_card')
-
-
-@error_handler
-async def start_lirpay_crypto_topup(
-    callback: types.CallbackQuery,
-    db_user: User,
-    db: AsyncSession,
-    state: FSMContext,
-):
-    await _start_lirpay_topup_impl(callback, db_user, state, 'lirpay_crypto')
+    """Единая точка входа: одна кнопка «LirPay», способ — на странице оплаты."""
+    await _start_lirpay_topup_impl(callback, db_user, state)

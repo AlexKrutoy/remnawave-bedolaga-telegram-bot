@@ -1064,9 +1064,7 @@ async def create_topup(
                 )
 
             payment_service = PaymentService()
-            # payment_option — sub-метод ('sbp' / 'card' / 'crypto'); без него
-            # способ выбирает покупатель на странице оплаты LirPay.
-            payment_method_type = request.payment_option or None
+            # Способ оплаты (СБП/карта/крипта) покупатель выбирает на странице LirPay.
             result = await payment_service.create_lirpay_payment(
                 db=db,
                 user_id=user.id,
@@ -1076,7 +1074,6 @@ async def create_topup(
                 ),
                 email=getattr(user, 'email', None),
                 language=getattr(user, 'language', None) or settings.DEFAULT_LANGUAGE,
-                payment_method_type=payment_method_type,
                 return_url=cabinet_success_url,
                 fail_url=cabinet_failed_url,
             )

@@ -234,7 +234,7 @@ async def route_payment_by_method(
             await process_cashera_payment_amount(message, db_user, db, amount_kopeks, state)
         return True
 
-    if payment_method in ('lirpay', 'lirpay_sbp', 'lirpay_card', 'lirpay_crypto'):
+    if payment_method == 'lirpay':
         from .lirpay import process_lirpay_payment_amount
 
         async with AsyncSessionLocal() as db:
@@ -937,17 +937,9 @@ def register_balance_handlers(dp: Dispatcher):
     dp.callback_query.register(handle_cashera_method_selection, F.data.startswith('cashera_method_'))
     dp.callback_query.register(start_cashera_direct_method, F.data.startswith('topup_cashera_m_'))
 
-    from .lirpay import (
-        start_lirpay_card_topup,
-        start_lirpay_crypto_topup,
-        start_lirpay_sbp_topup,
-        start_lirpay_topup,
-    )
+    from .lirpay import start_lirpay_topup
 
     dp.callback_query.register(start_lirpay_topup, F.data == 'topup_lirpay')
-    dp.callback_query.register(start_lirpay_sbp_topup, F.data == 'topup_lirpay_sbp')
-    dp.callback_query.register(start_lirpay_card_topup, F.data == 'topup_lirpay_card')
-    dp.callback_query.register(start_lirpay_crypto_topup, F.data == 'topup_lirpay_crypto')
 
     from .cispay import start_cispay_card_topup, start_cispay_sbp_topup, start_cispay_topup
 

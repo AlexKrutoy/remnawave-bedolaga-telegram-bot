@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from importlib import import_module
 from typing import Any
 
@@ -24,41 +24,6 @@ LIRPAY_STATUS_MAP: dict[str, tuple[str, bool]] = {
     'expired': ('expired', False),
 }
 
-# Sub-метод бота -> семейство способа (method_mode=single). LirPay сам
-# подставит selected_chain/selected_asset_symbol под проект мерчанта.
-LIRPAY_METHOD_MAP: dict[str, str] = {
-    'sbp': 'sbp',
-    'card': 'card',
-    'crypto': 'crypto',
-}
-
-
-def resolve_lirpay_method(payment_method_type: str | None) -> str | None:
-    """Определяет способ, фиксируемый в payment link.
-
-    Явный sub-метод выигрывает всегда. Если sub-методы не настроены (или
-    кабинет не прислал payment_option), возвращаем ``None`` — ссылка
-    создаётся с ``method_mode=multi``, и покупатель выбирает способ на
-    странице LirPay. Подставлять способ «по умолчанию» нельзя: у проекта
-    мерчанта он может быть выключен, и счёт не оплатится.
-    """
-    explicit = LIRPAY_METHOD_MAP.get((payment_method_type or '').lower())
-    if explicit:
-        return explicit
-
-    enabled = [
-        code
-        for code, is_on in (
-            ('sbp', settings.is_lirpay_sbp_enabled()),
-            ('card', settings.is_lirpay_card_enabled()),
-            ('crypto', settings.is_lirpay_crypto_enabled()),
-        )
-        if is_on
-    ]
-    # Включён ровно один способ — фиксируем его, чтобы не гонять покупателя
-    # через лишний экран выбора.
-    return enabled[0] if len(enabled) == 1 else None
-
 
 class LirPayPaymentMixin:
     """Mixin для работы с платежами LirPay."""
@@ -72,17 +37,15 @@ class LirPayPaymentMixin:
         description: str = 'Пополнение баланса',
         email: str | None = None,
         language: str = 'ru',
-        payment_method_type: str | None = None,
         return_url: str | None = None,
         fail_url: str | None = None,
     ) -> dict[str, Any] | None:
         """Создаёт payment link LirPay и возвращает данные для перехода на оплату.
 
-        ``payment_method_type`` — sub-метод бота ('sbp' / 'card' / 'crypto');
-        если не задан, способ выбирает покупатель на странице LirPay.
-        Результат оплаты приходит вебхуком на URL, настроенный в кабинете
-        LirPay (PUT /webhook), поэтому ``return_url`` только возвращает
-        покупателя в бот после оплаты.
+        Способ оплаты (СБП/карта/крипта) покупатель выбирает на странице LirPay
+        (method_mode=multi). Результат приходит вебхуком на URL, настроенный
+        в кабинете LirPay (PUT /webhook), поэтому ``return_url`` только
+        возвращает покупателя в бот после оплаты.
         """
         if not settings.is_lirpay_enabled():
             logger.error('LirPay не настроен')
@@ -119,7 +82,6 @@ class LirPayPaymentMixin:
         order_id = f'lp{tg_id}_{uuid.uuid4().hex[:8]}'
         amount_rubles = amount_kopeks / 100
         currency = settings.LIRPAY_CURRENCY
-        lirpay_method = resolve_lirpay_method(payment_method_type)
         customer_id = str(tg_id) if tg_id != 'guest' else f'guest-{order_id[-8:]}'
 
         metadata = {
@@ -128,7 +90,6 @@ class LirPayPaymentMixin:
             'description': description,
             'language': language,
             'type': 'balance_topup',
-            'payment_method_type': payment_method_type,
             'customer_id': customer_id,
         }
 
@@ -139,17 +100,16 @@ class LirPayPaymentMixin:
                 display_name=description[:255] if description else 'Пополнение баланса',
                 currency=currency,
                 customer_id=customer_id,
-                method=lirpay_method,
                 # Idempotency-Key = наш order_id: повтор запроса после сетевого
                 # сбоя вернёт ту же ссылку, а не создаст второй счёт.
                 idempotency_key=order_id,
-                expires_in_minutes=settings.LIRPAY_PAYMENT_LIFETIME_MINUTES,
             )
 
             lirpay_payment_id = api_result.get('public_id')
             payment_url = api_result.get('payment_link')
 
-            expires_at = datetime.now(UTC) + timedelta(minutes=settings.LIRPAY_PAYMENT_LIFETIME_MINUTES)
+            # LirPay сам задаёт срок жизни ссылки — не храним свой.
+            expires_at = None
 
             if api_result.get('test_mode') or api_result.get('status') == 'succeeded':
                 # TEST-ключ «оплачивает» счёт сразу без денег. Реальный баланс
@@ -168,7 +128,7 @@ class LirPayPaymentMixin:
                 currency=currency,
                 description=description,
                 payment_url=payment_url,
-                payment_method=lirpay_method,
+                payment_method=None,
                 lirpay_payment_id=str(lirpay_payment_id) if lirpay_payment_id else None,
                 expires_at=expires_at,
                 metadata_json=metadata,
@@ -179,7 +139,7 @@ class LirPayPaymentMixin:
                 order_id=order_id,
                 user_id=user_id,
                 amount_rubles=amount_rubles,
-                payment_method=lirpay_method or 'any',
+                payment_method='multi',
             )
 
             return {
@@ -189,7 +149,7 @@ class LirPayPaymentMixin:
                 'currency': currency,
                 'payment_url': payment_url,
                 'payment_id': str(lirpay_payment_id) if lirpay_payment_id else None,
-                'expires_at': expires_at.isoformat(),
+                'expires_at': expires_at.isoformat() if expires_at else None,
                 'local_payment_id': local_payment.id,
             }
 

@@ -349,48 +349,8 @@ def get_available_payment_methods() -> list[dict[str, str]]:
             }
         )
 
-    if settings.is_lirpay_sbp_enabled():
-        sbp_name = settings.get_lirpay_sbp_display_name()
-        methods.append(
-            {
-                'id': 'lirpay_sbp',
-                'name': sbp_name,
-                'icon': '📱',
-                'description': f'через {sbp_name}',
-                'callback': 'topup_lirpay_sbp',
-            }
-        )
-
-    if settings.is_lirpay_card_enabled():
-        card_name = settings.get_lirpay_card_display_name()
-        methods.append(
-            {
-                'id': 'lirpay_card',
-                'name': card_name,
-                'icon': '💳',
-                'description': f'через {card_name}',
-                'callback': 'topup_lirpay_card',
-            }
-        )
-
-    if settings.is_lirpay_crypto_enabled():
-        crypto_name = settings.get_lirpay_crypto_display_name()
-        methods.append(
-            {
-                'id': 'lirpay_crypto',
-                'name': crypto_name,
-                'icon': '🪙',
-                'description': f'через {crypto_name}',
-                'callback': 'topup_lirpay_crypto',
-            }
-        )
-
-    if (
-        settings.is_lirpay_enabled()
-        and not settings.is_lirpay_sbp_enabled()
-        and not settings.is_lirpay_card_enabled()
-        and not settings.is_lirpay_crypto_enabled()
-    ):
+    if settings.is_lirpay_enabled():
+        # Один способ: СБП/карту/крипту покупатель выбирает на странице LirPay.
         lirpay_name = settings.get_lirpay_display_name()
         methods.append(
             {
@@ -747,12 +707,6 @@ def is_payment_method_available(method_id: str) -> bool:
         return settings.is_cispay_enabled()
     if method_id == 'lirpay':
         return settings.is_lirpay_enabled()
-    if method_id == 'lirpay_sbp':
-        return settings.is_lirpay_sbp_enabled()
-    if method_id == 'lirpay_card':
-        return settings.is_lirpay_card_enabled()
-    if method_id == 'lirpay_crypto':
-        return settings.is_lirpay_crypto_enabled()
     if method_id == 'cashera':
         return settings.is_cashera_enabled()
     if method_id.startswith('cashera_m_'):

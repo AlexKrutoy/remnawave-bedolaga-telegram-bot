@@ -89,7 +89,7 @@
   Функции: `create_bot` — Create a Bot instance with SOCKS5 proxy and/or custom Telegram API server.
 - `app/cabinet/`
 - `app/config.py` — Python-модуль
-  Классы: `Settings` (427 методов)
+  Классы: `Settings` (418 методов)
   Функции: `transliterate_cyrillic` — Заменяет кириллические буквы латинскими, сохраняя регистр («Шмель» → «Shmel»)., `set_period_prices_from_db` — Устанавливает периоды/цены из БД., `get_db_period_prices` — Возвращает периоды/цены из БД если они загружены., `clear_db_period_prices` — Очищает кеш цен из тарифов (при переключении в classic mode)., `refresh_period_prices` — Rebuild cached period price mapping., `refresh_classic_period_prices` — Rebuild CLASSIC_PERIOD_PRICES from current settings., `get_traffic_prices`, `refresh_traffic_prices`
 - `app/database/`
 - `app/external/`
@@ -1192,7 +1192,7 @@
   Функции: `process_lava_payment_amount` — Обрабатывает сумму для Lava., `start_lava_topup`, `start_lava_card_topup`, `start_lava_sbp_topup`
 - `app/handlers/balance/lirpay.py` — Python-модуль
   Классы: нет
-  Функции: `process_lirpay_payment_amount` — Обрабатывает сумму, введённую пользователем для LirPay., `start_lirpay_topup`, `start_lirpay_sbp_topup`, `start_lirpay_card_topup`, `start_lirpay_crypto_topup`
+  Функции: `process_lirpay_payment_amount` — Обрабатывает сумму, введённую пользователем для LirPay., `start_lirpay_topup` — Единая точка входа: одна кнопка «LirPay», способ — на странице оплаты.
 - `app/handlers/balance/main.py` — Python-модуль
   Классы: нет
   Функции: `route_payment_by_method` — Роутер платежей по методу оплаты., `show_balance_menu`, `show_balance_history`, `handle_balance_history_pagination`, `show_payment_methods`, `handle_payment_methods_unavailable`, `handle_successful_topup_with_cart`, `request_support_topup`, `process_topup_amount`, `handle_sbp_payment`, `handle_topup_amount_callback`, `register_balance_handlers`
@@ -2068,7 +2068,7 @@
   Функции: `enable_lava_recurring` — Включить автопродление Lava. Возвращает {local_id, lava_subscription_id, redirect_url, status}., `purchase_tariff_with_lava_recurring` — Оформление подписки на тариф оплатой через автопродление Lava., `cancel_lava_recurring_for_subscription_safe` — Точка входа для путей удаления/отзыва подписки: отменяет активное, `get_lava_recurring_status` — Состояние активной привязки Lava для UI (бот/кабинет) либо None., `cancel_lava_recurring_by_local_id` — Отмена привязки по локальному id (кабинет/бот). Идемпотентна., `shift_lava_next_charge_after_manual_extension` — Сдвигает дату следующего списания Lava после РУЧНОГО продления подписки.
 - `app/services/payment/lirpay.py` — Python-модуль
   Классы: `LirPayPaymentMixin` (5 методов)
-  Функции: `resolve_lirpay_method` — Определяет способ, фиксируемый в payment link.
+  Функции: нет
 - `app/services/payment/mulenpay.py` — Python-модуль
   Классы: `MulenPayPaymentMixin` (4 методов)
   Функции: нет
@@ -4705,7 +4705,7 @@
   Функции: `anyio_backend`, `test_create_heleket_payment_success`, `test_create_heleket_payment_returns_none_without_service`, `test_create_heleket_payment_handles_empty_response`, `test_sync_heleket_payment_status_success`, `test_sync_heleket_payment_status_without_response`, `test_sync_heleket_payment_status_history_fallback`
 - `tests/services/test_payment_service_lirpay.py` — Python-модуль
   Классы: `DummySession` (3 методов), `DummyLocalPayment` (1 методов), `FakeLirPayPayment` (1 методов), `StubLirPayService` (2 методов)
-  Функции: `anyio_backend`, `test_kopeks_to_amount_roundtrip`, `test_amount_to_kopeks_unparseable`, `test_resolve_method_explicit_wins`, `test_resolve_method_none_when_multiple_enabled`, `test_resolve_method_single_enabled_fixed`, `test_create_payment_passes_idempotency_and_customer`, `test_create_payment_below_min`, `test_create_payment_above_max`, `test_create_payment_without_project_id`, `test_webhook_success_credits_balance`, `test_webhook_test_mode_never_credits` — TEST-ключ «оплачивает» эмулятором без денег — баланс не начисляем., `test_webhook_amount_mismatch`, `test_webhook_without_amount_not_credited`, `test_webhook_already_paid_idempotent`, `test_webhook_unknown_payment_acked` — Чужой счёт повторами не появится — подтверждаем доставку., `test_webhook_non_payment_event_acked`, `test_webhook_expired_marks_expired`, `test_webhook_refund_requires_manual_review`, `test_webhook_signature_ok`, `test_webhook_signature_bad`, `test_webhook_signature_no_secret` — Без секрета HMAC считался бы от известного тела — подпись подделал бы кто угодно., `test_webhook_signature_uses_raw_body` — Подпись считается от сырого тела, а не от пере-сериализованного JSON.
+  Функции: `anyio_backend`, `test_kopeks_to_amount_roundtrip`, `test_amount_to_kopeks_unparseable`, `test_create_payment_passes_idempotency_and_customer`, `test_create_payment_below_min`, `test_create_payment_above_max`, `test_create_payment_without_project_id`, `test_webhook_success_credits_balance`, `test_webhook_test_mode_never_credits` — TEST-ключ «оплачивает» эмулятором без денег — баланс не начисляем., `test_webhook_amount_mismatch`, `test_webhook_without_amount_not_credited`, `test_webhook_already_paid_idempotent`, `test_webhook_unknown_payment_acked` — Чужой счёт повторами не появится — подтверждаем доставку., `test_webhook_non_payment_event_acked`, `test_webhook_expired_marks_expired`, `test_webhook_refund_requires_manual_review`, `test_webhook_signature_ok`, `test_webhook_signature_bad`, `test_webhook_signature_no_secret` — Без секрета HMAC считался бы от известного тела — подпись подделал бы кто угодно., `test_webhook_signature_uses_raw_body` — Подпись считается от сырого тела, а не от пере-сериализованного JSON.
 - `tests/services/test_payment_service_modularity.py` — Python-модуль
   Классы: нет
   Функции: `test_payment_service_mro_contains_all_mixins` — Убеждаемся, что сервис действительно включает все mixin-классы., `test_payment_service_exposes_provider_methods` — Каждый mixin обязан добавить публичный метод в PaymentService.

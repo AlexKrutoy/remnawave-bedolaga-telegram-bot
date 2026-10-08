@@ -1128,16 +1128,6 @@ class Settings(BaseSettings):
     LIRPAY_MIN_AMOUNT_KOPEKS: int = 10000  # 100₽
     LIRPAY_MAX_AMOUNT_KOPEKS: int = 10000000  # 100 000₽
     LIRPAY_WEBHOOK_PATH: str = '/lirpay-webhook'
-    # Срок жизни ссылки (expires_in_minutes, положительное число)
-    LIRPAY_PAYMENT_LIFETIME_MINUTES: int = 60
-    # Sub-методы (method_mode=single). Если не включён ни один, показывается одна
-    # кнопка «LirPay», а способ покупатель выбирает на странице оплаты.
-    LIRPAY_SBP_ENABLED: bool = False
-    LIRPAY_SBP_DISPLAY_NAME: str = 'СБП (LirPay)'
-    LIRPAY_CARD_ENABLED: bool = False
-    LIRPAY_CARD_DISPLAY_NAME: str = 'Карта (LirPay)'
-    LIRPAY_CRYPTO_ENABLED: bool = False
-    LIRPAY_CRYPTO_DISPLAY_NAME: str = 'Крипта (LirPay)'
 
     # Cashera (api.cashera.cash, server-to-server; расчёты мерчанту в USDT, приём — только RUB)
     CASHERA_ENABLED: bool = False
@@ -3357,36 +3347,6 @@ class Settings(BaseSettings):
 
     def get_lirpay_display_name_html(self) -> str:
         return html.escape(self.get_lirpay_display_name())
-
-    def is_lirpay_sbp_enabled(self) -> bool:
-        return self.LIRPAY_SBP_ENABLED and self.is_lirpay_enabled()
-
-    def get_lirpay_sbp_display_name(self) -> str:
-        name = (self.LIRPAY_SBP_DISPLAY_NAME or '').strip()
-        return name or 'СБП (LirPay)'
-
-    def get_lirpay_sbp_display_name_html(self) -> str:
-        return html.escape(self.get_lirpay_sbp_display_name())
-
-    def is_lirpay_card_enabled(self) -> bool:
-        return self.LIRPAY_CARD_ENABLED and self.is_lirpay_enabled()
-
-    def get_lirpay_card_display_name(self) -> str:
-        name = (self.LIRPAY_CARD_DISPLAY_NAME or '').strip()
-        return name or 'Карта (LirPay)'
-
-    def get_lirpay_card_display_name_html(self) -> str:
-        return html.escape(self.get_lirpay_card_display_name())
-
-    def is_lirpay_crypto_enabled(self) -> bool:
-        return self.LIRPAY_CRYPTO_ENABLED and self.is_lirpay_enabled()
-
-    def get_lirpay_crypto_display_name(self) -> str:
-        name = (self.LIRPAY_CRYPTO_DISPLAY_NAME or '').strip()
-        return name or 'Крипта (LirPay)'
-
-    def get_lirpay_crypto_display_name_html(self) -> str:
-        return html.escape(self.get_lirpay_crypto_display_name())
 
     def is_cashera_configured(self) -> bool:
         """Есть ли учётные данные провайдера — без учёта флага включения."""
