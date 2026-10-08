@@ -2,15 +2,15 @@
 
 > Интеграция для [Remnawave Bedolaga Bot](../README.md). Провайдер: [LirPay](https://lirpay.org), Integration API v2 — `https://lirpay.org/api/v2/integration`. Документация провайдера: <https://lirpay.org/docs>.
 
-LirPay — платёжная система с hosted checkout: покупатель уходит на страницу `https://lirpay.org/pay/{public_id}`, сам выбирает способ оплаты (СБП, банковская карта, криптовалюта) и платит. Результат приходит на вебхук, подписанный HMAC-SHA256.
+LirPay — платёжная система с hosted checkout: в боте и кабинете одна кнопка «LirPay», покупатель уходит на страницу `https://lirpay.org/pay/{public_id}`, сам выбирает способ оплаты (СБП, банковская карта, криптовалюта) и платит. Результат приходит на вебхук, подписанный HMAC-SHA256.
 
 ## Как работает интеграция
 
 ```
-Покупатель в боте/кабинете
+Покупатель в боте/кабинете (одна кнопка «LirPay»)
         │  сумма ≥ LIRPAY_MIN_AMOUNT_KOPEKS
         ▼
-POST /payment-links ──► LirPay создаёт ссылку
+POST /payment-links ──► LirPay создаёт ссылку (method_mode=multi)
         │   Idempotency-Key = наш order_id (lp{tg_id}_{hex})
         │   customer_id = telegram_id
         ▼
@@ -142,7 +142,7 @@ PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES=1
 | `подпись не совпала` в логе | секрет вебхука не совпадает с окружением | тестовый и live-секреты разные — проверьте `LIRPAY_WEBHOOK_SECRET` |
 | Оплата прошла, баланс не пополнился (test) | тестовое окружение не шлёт вебхуки | включить автосверку; в test-режиме начисления не будет — это норма |
 | Оплата прошла, баланс не пополнился (live) | вебхук потерялся | автосверка доначислит в течение интервала; проверить `/webhooks/lirpay` health |
-| Ссылка создаётся, метод недоступен | ниже минимума метода (~5.5 USD для крипты) | поднять сумму или `method_mode=multi` |
+| Ссылка создаётся, метод недоступен | ниже минимума метода (~5.5 USD для крипты) | поднять сумму — метод скрыт на странице оплаты сам |
 
 Health-check вебхука: `GET https://{домен}/lirpay-webhook` →
 `{"status":"ok","service":"lirpay_webhook","enabled":true}`.
