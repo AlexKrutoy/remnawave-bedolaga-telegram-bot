@@ -265,7 +265,7 @@ class LirPayPaymentMixin:
                 received_kopeks = amount_to_kopeks(amount_raw)
                 if received_kopeks is not None:
                     try:
-                        result = await db.execute(select(LirPayPayment).where(LirPayPayment.is_paid == False))  # noqa: E712
+                        result = await db.execute(select(LirPayPayment).where(LirPayPayment.is_paid == False))
                         candidates = [
                             candidate
                             for candidate in result.scalars().all()
