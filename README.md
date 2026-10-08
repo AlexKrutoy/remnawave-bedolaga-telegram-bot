@@ -164,7 +164,7 @@ Bedolaga поддерживает полный кросс-канальный ж�
 | 💳 | **PayPalych (Pal24)** | Карты, СБП | RUB |
 | 🤝 | **[Platega](https://t.me/ArstanPlatega)** 🔸 | Карты, СБП, крипто | RUB |
 | 💳 | **WATA** | СБП, Карты | RUB |
-| 💳 | **[LirPay](https://lirpay.org)** | Hosted checkout: СБП, карты, крипта — способ выбирается на странице оплаты ([docs](docs/lirpay-integration.md)) | RUB |
+| 💳 | **[LirPay](https://lirpay.org)** | СБП, карты, крипта — выбор способа на странице оплаты | RUB |
 | 💳 | **MulenPay** | Карты | RUB |
 | 💳 | **RioPay** | Карты | RUB |
 | 💳 | **SeverPay** | СБП, карты | RUB |

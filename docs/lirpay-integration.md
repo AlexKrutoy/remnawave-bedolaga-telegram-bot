@@ -1,10 +1,13 @@
-# LirPay — приём платежей через hosted checkout (lirpay.org)
+# LirPay — приём платежей через hosted checkout
 
-> Интеграция для [Remnawave Bedolaga Bot](../README.md). Провайдер: [LirPay](https://lirpay.org), Integration API v2 — `https://lirpay.org/api/v2/integration`. Документация провайдера: <https://lirpay.org/docs>.
+Бот умеет принимать платежи через [LirPay](https://lirpay.org) — платёжную систему с hosted checkout:
+в боте и кабинете одна кнопка «LirPay», покупатель уходит на страницу `https://lirpay.org/pay/{id}`,
+сам выбирает способ оплаты (СБП, банковская карта, криптовалюта) и платит. Результат приходит
+на вебхук, подписанный HMAC-SHA256; страховка от потерянного вебхука — фоновая сверка статуса.
 
-LirPay — платёжная система с hosted checkout: в боте и кабинете одна кнопка «LirPay», покупатель уходит на страницу `https://lirpay.org/pay/{public_id}`, сам выбирает способ оплаты (СБП, банковская карта, криптовалюта) и платит. Результат приходит на вебхук, подписанный HMAC-SHA256.
+Документация провайдера: <https://lirpay.org/docs> (Integration API v2).
 
-## Как работает интеграция
+## 1. Обзор архитектуры
 
 ```
 Покупатель в боте/кабинете (одна кнопка «LirPay»)
@@ -14,7 +17,7 @@ POST /payment-links ──► LirPay создаёт ссылку (method_mode=mu
         │   Idempotency-Key = наш order_id (lp{tg_id}_{hex})
         │   customer_id = telegram_id
         ▼
-Запись lirpay_payments (status=pending, expires_at)
+Запись lirpay_payments (status=pending)
         │
         ▼
 Покупатель платит на lirpay.org/pay/{public_id}
@@ -29,13 +32,13 @@ POST /payment-links ──► LirPay создаёт ссылку (method_mode=mu
 Одновременный приход вебхука и сверки не задвоит зачисление
 (идемпотентность по `transaction_id` + `balance_credited` в метаданных).
 
-## Настройка
+## 2. Настройка окружения
 
-### 1. Мерчант и проект
+### 2.1. Мерчант и проект
 
 Зарегистрируйтесь на [lirpay.org](https://lirpay.org), создайте проект и дождитесь модерации. UUID одобренного проекта — это `LIRPAY_PROJECT_ID` (можно получить через `GET /projects`).
 
-### 2. Ключи API
+### 2.2. Ключи API
 
 В кабинете (`lirpay.org/merchant/api-keys`) создайте пару ключей:
 
@@ -45,14 +48,14 @@ POST /payment-links ──► LirPay создаёт ссылку (method_mode=mu
 | Секретный | `lsk_live_…` / `lsk_test_…` | заголовок `X-Lirpay-Secret-Key`, показывается **один раз** |
 
 **Обязательные scopes:** `payments:write`, `payments:read`, `projects:read`.
-Если вебхук настраивается через API (шаг 3, вариант Б) — добавьте `webhooks:write` и `webhooks:read`.
+Если вебхук настраивается через API (шаг 2.3, вариант Б) — добавьте `webhooks:write` и `webhooks:read`.
 
 Ключ целиком определяет окружение: `lpk_test_` работает с песочницей, `lpk_live_` — с реальными деньгами. Отдельного флага режима нет.
 
-### 3. Вебхук
+### 2.3. Вебхук
 
 **Вариант А — через кабинет LirPay:**
-- URL: `https://{ваш-домен}/lirpay-webhook` (только HTTPS)
+- URL: `https://{ваш-домен}` + `LIRPAY_WEBHOOK_PATH` (только HTTPS)
 - События: `payment.succeeded`, `payment.failed`, `payment.expired`, `payment.refunded`
 
 **Вариант Б — через API** (нужен scope `webhooks:write`):
@@ -79,7 +82,9 @@ curl -X POST https://lirpay.org/api/v2/integration/webhook/test \
   -H "Idempotency-Key: check-001" -d '{}'
 ```
 
-### 4. Переменные окружения
+### 2.4. Переменные окружения
+
+Минимальный набор в `.env`:
 
 ```dotenv
 LIRPAY_ENABLED=true
@@ -89,26 +94,27 @@ LIRPAY_WEBHOOK_SECRET=whsec_…
 LIRPAY_PROJECT_ID=00000000-0000-0000-0000-000000000000
 ```
 
-Способ включается только при заполненных **всех четырёх** секретах — с пустым секретом вебхука подпись подделывается тривиально.
+Все переменные:
 
-#### Все переменные
-
-| Переменная | По умолчанию | Описание |
+| Переменная | Назначение | Значение по умолчанию / пример |
 |---|---|---|
-| `LIRPAY_ENABLED` | `false` | Включить способ пополнения |
-| `LIRPAY_PUBLIC_KEY` | — | Публичный ключ API (`lpk_…`), обязателен |
-| `LIRPAY_SECRET_KEY` | — | Секретный ключ API (`lsk_…`), обязателен, показывается один раз |
-| `LIRPAY_WEBHOOK_SECRET` | — | Секрет подписи вебхуков (`whsec_…`), обязателен, выдаётся при PUT /webhook |
-| `LIRPAY_PROJECT_ID` | — | UUID одобренного проекта, обязателен (GET /projects) |
-| `LIRPAY_BASE_URL` | `https://lirpay.org` | Базовый URL API |
-| `LIRPAY_DISPLAY_NAME` | `LirPay` | Имя на кнопке пополнения |
-| `LIRPAY_CURRENCY` | `RUB` | Валюта счёта: `RUB`, `USD` или `EUR` |
-| `LIRPAY_MIN_AMOUNT_KOPEKS` | `10000` (100₽) | Минимальная сумма пополнения |
-| `LIRPAY_MAX_AMOUNT_KOPEKS` | `10000000` (100 000₽) | Максимальная сумма пополнения |
-| `LIRPAY_WEBHOOK_PATH` | `/lirpay-webhook` | Путь вебхука — должен совпадать с настроенным у LirPay |
+| `LIRPAY_ENABLED` | Включает способ пополнения. | `false` |
+| `LIRPAY_PUBLIC_KEY` | Публичный ключ API (`lpk_…`). Обязателен. | `lpk_live_…` |
+| `LIRPAY_SECRET_KEY` | Секретный ключ API (`lsk_…`), показывается один раз. Обязателен. | `lsk_live_…` |
+| `LIRPAY_WEBHOOK_SECRET` | Секрет подписи вебхуков (`whsec_…`), выдаётся при настройке вебхука (шаг 2.3). Обязателен. | `whsec_…` |
+| `LIRPAY_PROJECT_ID` | UUID одобренного проекта (шаг 2.1). Обязателен. | `00000000-…` |
+| `LIRPAY_BASE_URL` | Корень API LirPay, от него строятся все запросы (`{BASE_URL}/api/v2/integration/…`). Менять не нужно — запас на переезд домена провайдера. | `https://lirpay.org` |
+| `LIRPAY_DISPLAY_NAME` | Имя на кнопке пополнения. | `LirPay` |
+| `LIRPAY_CURRENCY` | Валюта счёта: `RUB`, `USD` или `EUR`. | `RUB` |
+| `LIRPAY_MIN_AMOUNT_KOPEKS` | Минимальная сумма пополнения, копейки. | `10000` (100₽) |
+| `LIRPAY_MAX_AMOUNT_KOPEKS` | Максимальная сумма пополнения, копейки. | `10000000` (100 000₽) |
+| `LIRPAY_WEBHOOK_PATH` | Путь вебхука в боте; полный URL = `https://{ваш-домен}` + этот путь, его и регистрируем у LirPay (шаг 2.3). | `/lirpay-webhook` |
+
+Способ включается только при заполненных **всех четырёх** секретах (`PUBLIC_KEY`, `SECRET_KEY`,
+`WEBHOOK_SECRET`, `PROJECT_ID`) — с пустым секретом вебхука подпись подделывается тривиально.
 Способ оплаты (СБП, карта, крипта) покупатель выбирает **на странице LirPay** — в боте и кабинете одна кнопка «LirPay». Крипто-методы имеют свои минимумы (~5.5 USD): при меньшей сумме ссылка создаётся, но соответствующие методы будут скрыты на странице (провайдер возвращает `below_minimum` в `warnings`).
 
-## Специфика окружений (проверено живым прогоном)
+## 3. Специфика окружений (проверено живым прогоном)
 
 | | TEST (`lpk_test_`) | LIVE (`lpk_live_`) |
 |---|---|---|
@@ -120,12 +126,12 @@ LIRPAY_PROJECT_ID=00000000-0000-0000-0000-000000000000
 
 Для тестирования включите автосверку — она покажет, что счёт оплатился, и корректно откажется начислять:
 
-```dotenv
-PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED=true
-PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES=1
-```
+| Переменная | Назначение | По умолчанию |
+|---|---|---|
+| `PAYMENT_VERIFICATION_AUTO_CHECK_ENABLED` | Фоновая сверка статусов платежей у провайдера. | `false` |
+| `PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES` | Интервал сверки. | `10` |
 
-## Безопасность
+## 4. Безопасность
 
 - **Подпись обязательна**: HMAC-SHA256 от сырого тела запроса, заголовок `X-Lirpay-Signature`. Без секрета проверка невозможна — webhook возвращает 400.
 - **Сумма сверяется до зачисления**: расхождение → статус `amount_mismatch`, деньги не зачислены, доставка вебхука повторится (не-2xx).
@@ -134,7 +140,7 @@ PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES=1
 - **Идемпотентность**: повторная доставка вебхука и одновременная фоновая сверка не задвоят зачисление (`FOR UPDATE` + `transaction_id` + `balance_credited`).
 - **Idempotency-Key = order_id** при создании ссылки: сетевой повтор не создаст второй счёт.
 
-## Диагностика
+## 5. Диагностика
 
 | Симптом | Причина | Решение |
 |---|---|---|
@@ -147,7 +153,7 @@ PAYMENT_VERIFICATION_AUTO_CHECK_INTERVAL_MINUTES=1
 Health-check вебхука: `GET https://{домен}/lirpay-webhook` →
 `{"status":"ok","service":"lirpay_webhook","enabled":true}`.
 
-## Архитектура в коде
+## 6. Код интеграции
 
 | Файл | Роль |
 |---|---|
@@ -157,4 +163,4 @@ Health-check вебхука: `GET https://{домен}/lirpay-webhook` →
 | `migrations/alembic/versions/0132_create_lirpay_payments.py` | таблица |
 | `app/webserver/payments.py` | маршрут `POST /lirpay-webhook` + health на GET |
 | `app/handlers/balance/lirpay.py` | экраны пополнения в боте |
-| `tests/services/test_payment_service_lirpay.py` | 22 теста: создание, вебхук, подпись, суммы |
+| `tests/services/test_payment_service_lirpay.py` | 19 тестов: создание, вебхук, подпись, суммы |
