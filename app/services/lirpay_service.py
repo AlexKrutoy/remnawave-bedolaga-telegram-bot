@@ -1,6 +1,6 @@
-"""Клиент LirPay Integration API v2 (lirpay.org): hosted checkout и вебхуки.
+"""Клиент LirPay Integration API v2 (lirpay.org): ссылки оплаты и вебхуки.
 
-Провайдер принимает СБП, карты и крипту на своей hosted-странице
+Провайдер принимает СБП, крипту и баланс LolzTeam на своей странице
 (``https://lirpay.org/pay/{public_id}``). Мерчант создаёт payment link,
 уводит плательщика по ссылке, результат приходит подписанным вебхуком
 (``payment.succeeded`` и др.).
@@ -229,7 +229,7 @@ class LirPayService:
         idempotency_key: str,
         expires_in_minutes: int | None = None,
     ) -> dict[str, Any]:
-        """POST /payment-links — создаёт hosted checkout.
+        """POST /payment-links — создаёт ссылку оплаты.
 
         Возвращает ``public_id`` и ``payment_link``
         (``https://lirpay.org/pay/{public_id}``). ``method`` — способ,

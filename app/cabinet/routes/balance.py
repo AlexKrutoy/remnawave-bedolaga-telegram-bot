@@ -1064,7 +1064,7 @@ async def create_topup(
                 )
 
             payment_service = PaymentService()
-            # Способ оплаты (СБП/карта/крипта) покупатель выбирает на странице LirPay.
+            # Способ оплаты (СБП/крипта/LolzTeam) покупатель выбирает на странице LirPay.
             result = await payment_service.create_lirpay_payment(
                 db=db,
                 user_id=user.id,

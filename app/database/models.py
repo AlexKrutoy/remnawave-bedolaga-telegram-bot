@@ -1799,7 +1799,7 @@ class CisPayPayment(Base):
 
 
 class LirPayPayment(Base):
-    """Платежи через LirPay (lirpay.org, Integration API v2: hosted checkout)."""
+    """Платежи через LirPay (lirpay.org, Integration API v2)."""
 
     __tablename__ = 'lirpay_payments'
 

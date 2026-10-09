@@ -350,7 +350,7 @@ def get_available_payment_methods() -> list[dict[str, str]]:
         )
 
     if settings.is_lirpay_enabled():
-        # Один способ: СБП/карту/крипту покупатель выбирает на странице LirPay.
+        # Один способ: СБП/крипту/баланс LolzTeam покупатель выбирает на странице LirPay.
         lirpay_name = settings.get_lirpay_display_name()
         methods.append(
             {

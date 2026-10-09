@@ -235,7 +235,7 @@ class BotConfigurationService:
         'ETOPLATEZHI': 'Etoplatezhi: paymentpage.etoplatezhi.ru, оплата картой и через СБП.',
         'JUPITER': 'Jupiter (FPGate P2P v2.1): app.juppiter.tech, эквайринг СБП с HMAC-SHA256.',
         'CISPAY': 'cisPay: api.cispay.app, H2H-оплата картой и СБП на хостинговой странице, вебхуки с HMAC-SHA256.',
-        'LIRPAY': 'LirPay: lirpay.org, hosted checkout (СБП, карты, крипта); вебхуки с HMAC-SHA256.',
+        'LIRPAY': 'LirPay: lirpay.org (СБП, крипта, баланс LolzTeam); вебхуки с HMAC-SHA256.',
         'CASHERA': 'Cashera: api.cashera.cash, СБП, карты, крипта и CryptoBot; ключ pk_, секрет sk_, методы оплаты.',
         'TABPAY': 'TabPay: tabpay.org, СБП и карты с 3-D Secure; вебхуки подписаны HMAC-SHA256 (X-Signature-V2).',
         'PARITYPAY': 'ParityPay: api.paritypay.net v2, СБП и карты; уведомления подписаны HMAC-SHA256 (X-SIGNATURE).',

@@ -2249,8 +2249,8 @@ def get_payment_methods_keyboard(amount_kopeks: int, language: str = DEFAULT_LAN
         has_direct_payment_methods = True
 
     if settings.is_lirpay_enabled():
-        # Одна кнопка: способ оплаты (СБП/карта/крипта) покупатель выбирает
-        # на странице LirPay — методика hosted checkout.
+        # Одна кнопка: способ оплаты (СБП/крипта/баланс LolzTeam) покупатель
+        # выбирает на странице LirPay.
         lirpay_name = settings.get_lirpay_display_name()
         keyboard.append(
             [

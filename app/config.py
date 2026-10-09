@@ -1114,7 +1114,7 @@ class Settings(BaseSettings):
     CISPAY_SBP_ENABLED: bool = False
     CISPAY_SBP_DISPLAY_NAME: str = 'СБП (CisPay)'
 
-    # LirPay (lirpay.org, Integration API v2: СБП, карты, крипта на hosted-странице)
+    # LirPay (lirpay.org, Integration API v2: СБП, крипта, баланс LolzTeam)
     LIRPAY_ENABLED: bool = False
     LIRPAY_PUBLIC_KEY: str | None = None  # lpk_live_… / lpk_test_…
     LIRPAY_SECRET_KEY: str | None = None  # lsk_live_… / lsk_test_… (показывается один раз)
