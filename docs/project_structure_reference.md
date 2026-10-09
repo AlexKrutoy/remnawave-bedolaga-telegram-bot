@@ -29,7 +29,6 @@
 - `docker-compose.local.yml` — файл
 - `docker-compose.yml` — файл
 - `docs/`
-- `locales/`
 - `main.py` — Python-модуль
   Классы: `GracefulExit` (2 методов)
   Функции: `main`
@@ -2695,14 +2694,6 @@
 
 - `docs/handoffs/handoff-2026-08-31-1659.md` — файл
 - `docs/handoffs/handoff-2026-08-31-1944.md` — файл
-
-## locales
-
-- `locales/en.json` — файл
-- `locales/fa.json` — файл
-- `locales/ru.json` — файл
-- `locales/ua.json` — файл
-- `locales/zh.json` — файл
 
 ## migrations
 
