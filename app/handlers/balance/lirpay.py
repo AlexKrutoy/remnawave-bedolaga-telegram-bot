@@ -214,7 +214,7 @@ async def _start_lirpay_topup_impl(
 
     display_name = settings.get_lirpay_display_name()
 
-    keyboard = await get_topup_amount_keyboard(payment_method, db_user.language)
+    keyboard = await get_topup_amount_keyboard('lirpay', db_user.language)
 
     await callback.message.edit_text(
         texts.t(
