@@ -453,3 +453,65 @@ def test_webhook_signature_uses_raw_body() -> None:
         service.verify_webhook_signature(b'{"amount":"500.00","type":"payment.succeeded"}', _sign(raw, 'whsec_test'))
         is False
     )
+
+
+# ---------------------------------------------------------------------------
+# Тестовое окружение: сверка не начисляет эмуляторные оплаты
+# ---------------------------------------------------------------------------
+
+
+def test_is_test_key_detects_prefix() -> None:
+    """Среда определяется ключом: lpk_test_ — песочница, lpk_live_ — бой."""
+    service = LirPayService()
+    service._public_key = 'lpk_test_cec2667b9b5880ac'
+    assert service.is_test_key() is True
+    service._public_key = 'lpk_live_eb8c23abb59d1b60'
+    assert service.is_test_key() is False
+
+
+async def test_api_check_with_test_key_never_credits(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Сверка по тестовому ключу видит paid, но баланс не начисляет.
+
+    Ответ GET /payment-links режима не несёт — раньше тестовые «оплаты»
+    эмулятором зачислялись молча; теперь статус error и запись в лог.
+    """
+    _enable_lirpay(monkeypatch)
+    monkeypatch.setattr(settings, 'LIRPAY_PUBLIC_KEY', 'lpk_test_cec2667b9b5880ac', raising=False)
+
+    payment = FakeLirPayPayment()
+    payment.lirpay_payment_id = 'a1b2c3d4e5f67890'
+
+    async def fake_get_by_order_id(db, order_id):
+        return payment
+
+    async def fake_update(db, payment, **kw):
+        payment.status = kw.get('status', payment.status)
+        if kw.get('is_paid') is not None:
+            payment.is_paid = kw['is_paid']
+        return payment
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_order_id', fake_get_by_order_id)
+    monkeypatch.setattr(lirpay_crud_module, 'update_lirpay_payment_status', fake_update)
+
+    class StubLinkService:
+        is_test = True
+
+        def is_test_key(self):
+            return self.is_test
+
+        async def get_payment_link(self, public_id):
+            return {
+                'public_id': public_id,
+                'status': 'paid',
+                'amount': '500.00',
+                'currency': 'RUB',
+            }
+
+    monkeypatch.setattr('app.services.payment.lirpay.lirpay_service', StubLinkService())
+
+    service = _make_service()
+    result = await service.check_lirpay_payment_status(DummySession(), payment.order_id)
+    assert result is not None
+    assert result['status'] == 'error'
+    assert payment.is_paid is False
+    assert payment.status == 'error'

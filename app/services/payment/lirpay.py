@@ -625,6 +625,24 @@ class LirPayPaymentMixin:
                 lirpay_status = (status_data.get('status') or '').strip().lower()
                 internal_status, is_paid = LIRPAY_STATUS_MAP.get(lirpay_status, ('pending', False))
 
+                if is_paid and lirpay_service.is_test_key():
+                    # Тестовый ключ «оплачивает» эмулятором без денег — реальный
+                    # баланс по таким счетам начислять нельзя. Вебхук-путь ловит
+                    # это по X-Lirpay-Mode/полю test, но ответ GET /payment-links
+                    # режима не несёт — сверяемся с префиксом нашего ключа.
+                    logger.error(
+                        'LirPay API check: ТЕСТОВЫЙ платёж (ключ lpk_test_), баланс не начисляем',
+                        order_id=payment.order_id,
+                    )
+                    await lirpay_crud.update_lirpay_payment_status(
+                        db=db,
+                        payment=payment,
+                        status='error',
+                        is_paid=False,
+                        callback_payload={'check_source': 'api', 'lirpay_status_data': status_data},
+                    )
+                    return {'payment': payment, 'status': 'error', 'is_paid': False}
+
                 if not is_paid:
                     if internal_status != payment.status:
                         payment = await lirpay_crud.update_lirpay_payment_status(

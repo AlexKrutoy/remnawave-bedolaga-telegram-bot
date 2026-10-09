@@ -123,6 +123,16 @@ class LirPayService:
     def _webhook_secret_get(self) -> str:
         return self._webhook_secret if self._webhook_secret is not None else (settings.LIRPAY_WEBHOOK_SECRET or '')
 
+    def is_test_key(self) -> bool:
+        """Наш ключ принадлежит тестовому окружению (lpk_test_…).
+
+        Среда целиком определяется ключом: тестовые ссылки оплачиваются
+        эмулятором без денег, поэтому зачисление по ним запрещено — и на
+        вебхуке (X-Lirpay-Mode), и на фоновой сверке (этот хелпер: ответ
+        GET /payment-links режима не несёт).
+        """
+        return self.public_key.strip().startswith('lpk_test_')
+
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
             self._session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30))
