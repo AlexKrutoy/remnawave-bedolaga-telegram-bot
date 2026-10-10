@@ -39,6 +39,19 @@ def anyio_backend() -> str:
     return 'asyncio'
 
 
+class _EmptyScalars:
+    def all(self):
+        return []
+
+    def scalar_one_or_none(self):
+        return None
+
+
+class _EmptyResult:
+    def scalars(self):
+        return _EmptyScalars()
+
+
 class DummySession:
     async def commit(self) -> None:
         return None
@@ -48,6 +61,10 @@ class DummySession:
 
     async def flush(self) -> None:
         return None
+
+    async def execute(self, *_args: Any, **_kwargs: Any) -> Any:
+        # фолбэк-матчинг вебхука: пустой набор кандидатов
+        return _EmptyResult()
 
 
 class DummyLocalPayment:
@@ -63,12 +80,14 @@ class FakeLirPayPayment:
         status: str = 'pending',
         is_paid: bool = False,
         amount_kopeks: int = 50000,
+        currency: str = 'RUB',
     ) -> None:
         self.id = 11
         self.user_id = 77
         self.order_id = 'lp123456_ab12cd'
         self.lirpay_payment_id = 'a1b2c3d4e5f67890'
         self.amount_kopeks = amount_kopeks
+        self.currency = currency
         self.payment_method = None
         self.status = status
         self.is_paid = is_paid
@@ -230,6 +249,11 @@ async def test_webhook_success_credits_balance(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_order_id', fake_get_by_order_id)
     monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_invoice_id', fake_get_by_invoice_id)
 
+    async def fake_get_for_update(db, payment_id):
+        return payment
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_id_for_update', fake_get_for_update)
+
     finalize_calls = []
 
     async def fake_finalize(db, payment_obj, *, trigger):
@@ -259,6 +283,11 @@ async def test_webhook_test_mode_never_credits(monkeypatch: pytest.MonkeyPatch) 
         'get_lirpay_payment_by_invoice_id',
         AsyncMock(return_value=payment),
     )
+    monkeypatch.setattr(
+        lirpay_crud_module,
+        'get_lirpay_payment_by_id_for_update',
+        AsyncMock(return_value=payment),
+    )
 
     async def fake_update(db, payment, **kw):
         payment.status = kw.get('status', payment.status)
@@ -283,6 +312,11 @@ async def test_webhook_amount_mismatch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         lirpay_crud_module,
         'get_lirpay_payment_by_invoice_id',
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(
+        lirpay_crud_module,
+        'get_lirpay_payment_by_id_for_update',
         AsyncMock(return_value=payment),
     )
     updated = []
@@ -311,6 +345,11 @@ async def test_webhook_without_amount_not_credited(monkeypatch: pytest.MonkeyPat
         'get_lirpay_payment_by_invoice_id',
         AsyncMock(return_value=payment),
     )
+    monkeypatch.setattr(
+        lirpay_crud_module,
+        'get_lirpay_payment_by_id_for_update',
+        AsyncMock(return_value=payment),
+    )
 
     service = _make_service()
     result = await service.process_lirpay_callback(DummySession(), body)
@@ -325,6 +364,11 @@ async def test_webhook_already_paid_idempotent(monkeypatch: pytest.MonkeyPatch) 
     monkeypatch.setattr(
         lirpay_crud_module,
         'get_lirpay_payment_by_invoice_id',
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(
+        lirpay_crud_module,
+        'get_lirpay_payment_by_id_for_update',
         AsyncMock(return_value=payment),
     )
 
@@ -374,6 +418,11 @@ async def test_webhook_expired_marks_expired(monkeypatch: pytest.MonkeyPatch) ->
         'get_lirpay_payment_by_invoice_id',
         AsyncMock(return_value=payment),
     )
+    monkeypatch.setattr(
+        lirpay_crud_module,
+        'get_lirpay_payment_by_id_for_update',
+        AsyncMock(return_value=payment),
+    )
     monkeypatch.setattr(lirpay_crud_module, 'update_lirpay_payment_status', fake_update)
 
     service = _make_service()
@@ -398,6 +447,11 @@ async def test_webhook_refund_requires_manual_review(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(
         lirpay_crud_module,
         'get_lirpay_payment_by_invoice_id',
+        AsyncMock(return_value=payment),
+    )
+    monkeypatch.setattr(
+        lirpay_crud_module,
+        'get_lirpay_payment_by_id_for_update',
         AsyncMock(return_value=payment),
     )
     monkeypatch.setattr(lirpay_crud_module, 'update_lirpay_payment_status', fake_update)
@@ -515,3 +569,168 @@ async def test_api_check_with_test_key_never_credits(monkeypatch: pytest.MonkeyP
     assert result['status'] == 'error'
     assert payment.is_paid is False
     assert payment.status == 'error'
+
+
+# ---------------------------------------------------------------------------
+# Аудит-фиксы: блокировка, неоднозначный матч, валюта, поздние события
+# ---------------------------------------------------------------------------
+
+
+async def test_webhook_takes_for_update_lock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Вебхук обязан брать FOR UPDATE до применения события."""
+    _enable_lirpay(monkeypatch)
+    payment = FakeLirPayPayment()
+    lock_calls = []
+
+    async def fake_get_by_invoice_id(db, invoice_id):
+        return payment
+
+    async def fake_get_for_update(db, payment_id):
+        lock_calls.append(payment_id)
+        return payment
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_invoice_id', fake_get_by_invoice_id)
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_id_for_update', fake_get_for_update)
+
+    async def fake_finalize(db, payment_obj, *, trigger):
+        return True
+
+    service = _make_service()
+    monkeypatch.setattr(service, '_finalize_lirpay_payment', fake_finalize)
+    result = await service.process_lirpay_callback(DummySession(), _webhook_body())
+    assert result is True
+    assert lock_calls == [payment.id]
+
+
+async def test_webhook_ambiguous_fallback_nacks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Неоднозначный матч по customer_id+сумме — повторная доставка, не ACK."""
+
+    class FakeRows:
+        def scalars(self):
+            class S:
+                def all(self):
+                    return [FakeLirPayPayment(), FakeLirPayPayment()]
+
+            return S()
+
+    class FakeExecSession(DummySession):
+        async def execute(self, *_a, **_kw):
+            return FakeRows()
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_order_id', AsyncMock(return_value=None))
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_invoice_id', AsyncMock(return_value=None))
+
+    service = _make_service()
+    result = await service.process_lirpay_callback(FakeExecSession(), _webhook_body())
+    assert result is False
+
+
+async def test_webhook_currency_mismatch_not_credited(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Счёт в USD не зачисляется как рубли."""
+    _enable_lirpay(monkeypatch)
+    payment = FakeLirPayPayment(amount_kopeks=50000, currency='RUB')
+    body = _webhook_body(amount='500.00')
+    body['payment']['currency'] = 'USD'
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_invoice_id', AsyncMock(return_value=payment))
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_id_for_update', AsyncMock(return_value=payment))
+    updated = []
+
+    async def fake_update(db, **kw):
+        payment_obj = kw.get('payment')
+        if payment_obj is not None:
+            payment_obj.status = kw.get('status', payment_obj.status)
+        updated.append(kw.get('status'))
+        return payment_obj
+
+    monkeypatch.setattr(lirpay_crud_module, 'update_lirpay_payment_status', fake_update)
+
+    service = _make_service()
+    result = await service.process_lirpay_callback(DummySession(), body)
+    assert result is False
+    assert payment.is_paid is False
+    assert updated == ['amount_mismatch']
+
+
+async def test_webhook_late_expired_does_not_touch_paid(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Поздний expired после зачисления не перезаписывает оплаченный платёж."""
+    _enable_lirpay(monkeypatch)
+    payment = FakeLirPayPayment(is_paid=True, status='success')
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_invoice_id', AsyncMock(return_value=payment))
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_id_for_update', AsyncMock(return_value=payment))
+    update_calls = []
+
+    async def fake_update(db, **kw):
+        update_calls.append(kw.get('status'))
+        return kw.get('payment')
+
+    monkeypatch.setattr(lirpay_crud_module, 'update_lirpay_payment_status', fake_update)
+
+    service = _make_service()
+    result = await service.process_lirpay_callback(
+        DummySession(), _webhook_body(event='payment.expired', status='expired')
+    )
+    assert result is True
+    assert update_calls == [], 'оплаченный платёж не должен менять статус'
+    assert payment.status == 'success'
+    assert payment.is_paid is True
+
+
+async def test_webhook_repeat_succeeded_idempotent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Повторная доставка succeeded не зачисляет дважды (гвард is_paid)."""
+    _enable_lirpay(monkeypatch)
+    payment = FakeLirPayPayment(is_paid=True, status='success')
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_invoice_id', AsyncMock(return_value=payment))
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_id_for_update', AsyncMock(return_value=payment))
+
+    finalize_calls = []
+
+    async def fake_finalize(db, payment_obj, *, trigger):
+        finalize_calls.append(trigger)
+        return True
+
+    service = _make_service()
+    monkeypatch.setattr(service, '_finalize_lirpay_payment', fake_finalize)
+    result = await service.process_lirpay_callback(DummySession(), _webhook_body())
+    assert result is True
+    assert finalize_calls == []
+
+
+async def test_api_check_credits_production_payment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Сверка доначисляет боевой платёж при потерянном вебхуке."""
+    _enable_lirpay(monkeypatch)
+    payment = FakeLirPayPayment()
+
+    async def fake_get_by_order_id(db, order_id):
+        return payment
+
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_order_id', fake_get_by_order_id)
+    monkeypatch.setattr(lirpay_crud_module, 'get_lirpay_payment_by_id_for_update', AsyncMock(return_value=payment))
+
+    class StubLinkService:
+        def is_test_key(self):
+            return False
+
+        async def get_payment_link(self, public_id):
+            return {
+                'public_id': public_id,
+                'status': 'paid',
+                'amount': '500.00',
+                'currency': 'RUB',
+            }
+
+    monkeypatch.setattr('app.services.payment.lirpay.lirpay_service', StubLinkService())
+
+    async def fake_finalize(db, payment_obj, *, trigger):
+        payment_obj.is_paid = True
+        payment_obj.status = 'success'
+        return True
+
+    service = _make_service()
+    monkeypatch.setattr(service, '_finalize_lirpay_payment', fake_finalize)
+    result = await service.check_lirpay_payment_status(DummySession(), payment.order_id)
+    assert result is not None
+    assert result['status'] == 'success'
+    assert payment.is_paid is True
