@@ -2336,7 +2336,6 @@ def create_payment_router(bot: Bot, payment_service: PaymentService) -> APIRoute
                     'cashera_enabled': settings.is_cashera_enabled(),
                     'tabpay_enabled': settings.is_tabpay_enabled(),
                     'paritypay_enabled': settings.is_paritypay_enabled(),
-                    'lirpay_enabled': settings.is_lirpay_enabled(),
                 }
             )
 

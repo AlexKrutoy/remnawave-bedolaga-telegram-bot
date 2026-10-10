@@ -132,6 +132,19 @@ async def get_pending_lirpay_payments(db: AsyncSession, user_id: int) -> list[Li
     return list(result.scalars().all())
 
 
+async def get_expired_pending_lirpay_payments(db: AsyncSession) -> list[LirPayPayment]:
+    """Возвращает просроченные платежи в статусе pending."""
+    now = datetime.now(UTC)
+    result = await db.execute(
+        select(LirPayPayment).where(
+            LirPayPayment.status == 'pending',
+            LirPayPayment.is_paid == False,
+            LirPayPayment.expires_at < now,
+        )
+    )
+    return list(result.scalars().all())
+
+
 async def link_lirpay_payment_to_transaction(
     db: AsyncSession,
     *,

@@ -721,7 +721,7 @@
   Функции: `create_lava_subscription`, `get_lava_subscription_by_id`, `get_lava_subscription_by_id_for_update`, `get_lava_subscription_by_lava_id`, `get_lava_subscription_by_order_id` — Поиск по orderId — основной путь вебхука: списание приходит инвойсом., `get_active_lava_subscription_by_subscription`, `update_lava_subscription`, `list_lava_subscriptions_by_statuses`, `list_recently_cancelled_lava_subscriptions` — Недавно отменённые локально записи с remote-идентификатором.
 - `app/database/crud/lirpay.py` — Python-модуль
   Классы: нет
-  Функции: `create_lirpay_payment` — Создаёт запись о платеже LirPay., `get_lirpay_payment_by_order_id` — Получает платёж по нашему order_id (= Idempotency-Key)., `get_lirpay_payment_by_invoice_id` — Получает платёж по public_id, выданному LirPay., `get_lirpay_payment_by_id` — Получает платёж по локальному ID., `get_lirpay_payment_by_id_for_update` — Получает платёж с блокировкой FOR UPDATE., `update_lirpay_payment_status` — Обновляет статус платежа., `get_pending_lirpay_payments` — Возвращает незавершённые платежи пользователя., `link_lirpay_payment_to_transaction` — Связывает платёж с транзакцией.
+  Функции: `create_lirpay_payment` — Создаёт запись о платеже LirPay., `get_lirpay_payment_by_order_id` — Получает платёж по нашему order_id (= Idempotency-Key)., `get_lirpay_payment_by_invoice_id` — Получает платёж по public_id, выданному LirPay., `get_lirpay_payment_by_id` — Получает платёж по локальному ID., `get_lirpay_payment_by_id_for_update` — Получает платёж с блокировкой FOR UPDATE., `update_lirpay_payment_status` — Обновляет статус платежа., `get_pending_lirpay_payments` — Возвращает незавершённые платежи пользователя., `get_expired_pending_lirpay_payments` — Возвращает просроченные платежи в статусе pending., `link_lirpay_payment_to_transaction` — Связывает платёж с транзакцией.
 - `app/database/crud/main_menu_button.py` — Python-модуль
   Классы: нет
   Функции: `count_main_menu_buttons`, `get_main_menu_buttons`, `get_main_menu_button_by_id`, `get_next_display_order`, `create_main_menu_button`, `update_main_menu_button`, `delete_main_menu_button`, `reorder_main_menu_buttons`
@@ -1603,7 +1603,7 @@
   Классы: `LegalConsentRequirement`
   Функции: `get_requirement` — Требование согласия для НОВОГО пользователя кабинета., `missing_documents` — Какие из обязательных документов пользователь не отметил., `record_consent` — Записать факт согласия. Сбой записи не должен ронять регистрацию.
 - `app/services/lirpay_service.py` — Python-модуль
-  Классы: `LirPayAPIError` (1 методов), `LirPayNetworkError`, `LirPayService` (18 методов)
+  Классы: `LirPayAPIError` (1 методов), `LirPayNetworkError`, `LirPayService` (21 методов)
   Функции: `kopeks_to_amount` — Копейки → строка рублей с двумя знаками («129.00»)., `amount_to_kopeks` — Строка/число рублей из ответа LirPay → копейки, либо None.
 - `app/services/live_menu_service.py` — Python-модуль
   Классы: нет
@@ -2121,14 +2121,14 @@
   Классы: нет
   Функции: нет
 - `app/services/reachability/batches.py` — Python-модуль
-  Классы: не разобран (SyntaxError)
-  Функции: не разобраны
+  Классы: `BatchService` (3 методов), `BatchPreview`
+  Функции: `chunk_targets`, `estimate_batch_minutes` — Примерное время всей пачки: раунды по ``parallel`` чашек, раунд длится по числу симок., `batch_status_from_jobs` — None — пачка ещё идёт; иначе итог: отменена, не удалась целиком или завершена., `batch_cost_kopeks`, `batch_done_targets`, `preview_batch` — Цена и время всей пачки: превью каждой чашки (бесплатно, без троттла) и сумма., `create_batch` — Одна пачка и задача на каждую чашку; деньги проверяются до записи, драйвер стартует после коммита.
 - `app/services/reachability/cores.py` — Python-модуль
   Классы: нет
   Функции: нет
 - `app/services/reachability/gate.py` — Python-модуль
-  Классы: не разобран (SyntaxError)
-  Функции: не разобраны
+  Классы: `PaidCallGate` (3 методов)
+  Функции: нет
 - `app/services/reachability/geo_catalog.py` — Python-модуль
   Классы: `GeoCatalogCache` (4 методов)
   Функции: `catalog_params` — Query к сервису: пустые фильтры не уходят, округ — латиницей, потолок городов — в рамках 1..5000., `city_name_key`, `names_from_catalog` — {'regions': token → {name, district}, 'cities': 'region|city' → city_ru} из ответа справочника.
@@ -2301,8 +2301,8 @@
   Классы: нет
   Функции: `get_user_notification_pref` — Get a single notification preference for user., `is_subscription_expiry_enabled` — Check if subscription expiry notifications are enabled for user., `get_subscription_expiry_days` — Get the number of days before expiry to notify., `is_traffic_warning_enabled` — Check if traffic warning notifications are enabled for user., `get_traffic_warning_percent` — Get the traffic usage percentage threshold for warning., `is_balance_low_enabled` — Check if low balance notifications are enabled for user., `get_balance_low_threshold` — Get the low balance threshold in kopeks., `is_news_enabled` — Check if news notifications are enabled for user., `is_promo_offers_enabled` — Check if promo offer notifications are enabled for user., `filter_users_by_broadcast_category` — Отсеивает отписавшихся от рассылки этой категории.
 - `app/utils/pagination.py` — Python-модуль
-  Классы: не разобран (SyntaxError)
-  Функции: не разобраны
+  Классы: `PaginationResult` (1 методов)
+  Функции: `paginate_list`, `get_pagination_info`, `get_page_numbers`
 - `app/utils/panel_node_usage.py` — Python-модуль
   Классы: нет
   Функции: `coerce_bytes`, `normalize_node_usage` — Привести элементы потребления к форме `{user_id, username, node_uuid, total_bytes}`.
@@ -3665,8 +3665,8 @@
 
 - `tests/contracts/fixtures/`
 - `tests/contracts/test_bschek_geo_client_paths_match_spec.py` — Python-модуль
-  Классы: не разобран (SyntaxError)
-  Функции: не разобраны
+  Классы: нет
+  Функции: `test_every_geo_call_of_the_client_exists_in_the_spec`, `test_client_covers_the_five_endpoints_we_use`
 - `tests/contracts/test_local_day_guard.py` — Python-модуль
   Классы: нет
   Функции: `find_violations`, `test_known_utc_sites_still_exist` — Список исключений не должен пережить переименование: каждая функция обязана существовать., `test_detector_sees_every_idiom` — Сторож не ослеп: на синтетическом примере находит все пять идиом., `test_app_has_no_hand_made_utc_days`
@@ -3680,8 +3680,8 @@
   Классы: нет
   Функции: `test_route_reads_only_fields_that_exist_on_panel_dataclasses`
 - `tests/contracts/test_remnawave_client_paths_match_spec.py` — Python-модуль
-  Классы: не разобран (SyntaxError)
-  Функции: не разобраны
+  Классы: нет
+  Функции: `test_client_calls_only_endpoints_that_exist_in_panel_spec`, `test_legacy_allowlist_entries_are_really_absent_from_spec` — Если ручка из allowlist вернулась в спецификацию, запись устарела — убрать.
 - `tests/contracts/test_renewal_applies_tariff_traffic_rule.py` — Python-модуль
   Классы: нет
   Функции: `collect_offenders`, `test_every_renewal_applies_the_tariff_traffic_rule`, `test_known_exceptions_still_exist` — Список исключений не должен протухать: переименовали функцию — обнови причину., `test_detector_sees_the_recurring_gateways` — Самопроверка детектора: рекуррентные Lava и Platega двигают дату методом модели.
@@ -4704,8 +4704,8 @@
   Классы: `DummySession` (4 методов), `DummyLocalPayment` (1 методов), `StubHeleketService` (4 методов)
   Функции: `anyio_backend`, `test_create_heleket_payment_success`, `test_create_heleket_payment_returns_none_without_service`, `test_create_heleket_payment_handles_empty_response`, `test_sync_heleket_payment_status_success`, `test_sync_heleket_payment_status_without_response`, `test_sync_heleket_payment_status_history_fallback`
 - `tests/services/test_payment_service_lirpay.py` — Python-модуль
-  Классы: `DummySession` (4 методов), `DummyLocalPayment` (1 методов), `FakeLirPayPayment` (1 методов), `StubLirPayService` (2 методов)
-  Функции: `anyio_backend`, `test_kopeks_to_amount_roundtrip`, `test_amount_to_kopeks_unparseable`, `test_create_payment_passes_idempotency_and_customer`, `test_create_payment_below_min`, `test_create_payment_above_max`, `test_create_payment_without_project_id`, `test_webhook_success_credits_balance`, `test_webhook_test_mode_never_credits` — TEST-ключ «оплачивает» эмулятором без денег — баланс не начисляем., `test_webhook_amount_mismatch`, `test_webhook_without_amount_not_credited`, `test_webhook_already_paid_idempotent`, `test_webhook_unknown_payment_acked` — Чужой счёт повторами не появится — подтверждаем доставку., `test_webhook_non_payment_event_acked`, `test_webhook_expired_marks_expired`, `test_webhook_refund_requires_manual_review`, `test_webhook_signature_ok`, `test_webhook_signature_bad`, `test_webhook_signature_no_secret` — Без секрета HMAC считался бы от известного тела — подпись подделал бы кто угодно., `test_webhook_signature_uses_raw_body` — Подпись считается от сырого тела, а не от пере-сериализованного JSON., `test_is_test_key_detects_prefix` — Среда определяется ключом: lpk_test_ — песочница, lpk_live_ — бой., `test_api_check_with_test_key_never_credits` — Сверка по тестовому ключу видит paid, но баланс не начисляет., `test_webhook_takes_for_update_lock` — Вебхук-путь обязан брать FOR UPDATE до применения успеха (как ParityPay)., `test_webhook_ambiguous_fallback_nacks` — Неоднозначный матч по customer_id+сумме — не ACK, а повторная доставка., `test_webhook_currency_mismatch_not_credited` — Счёт в USD не должен зачисляться как рубли (10.00 USD ≠ 1000 копеек)., `test_webhook_same_currency_credited` — Совпавшая валюта не мешает обычному зачислению.
+  Классы: `DummySession` (3 методов), `DummyLocalPayment` (1 методов), `FakeLirPayPayment` (1 методов), `StubLirPayService` (2 методов)
+  Функции: `anyio_backend`, `test_kopeks_to_amount_roundtrip`, `test_amount_to_kopeks_unparseable`, `test_create_payment_passes_idempotency_and_customer`, `test_create_payment_below_min`, `test_create_payment_above_max`, `test_create_payment_without_project_id`, `test_webhook_success_credits_balance`, `test_webhook_test_mode_never_credits` — TEST-ключ «оплачивает» эмулятором без денег — баланс не начисляем., `test_webhook_amount_mismatch`, `test_webhook_without_amount_not_credited`, `test_webhook_already_paid_idempotent`, `test_webhook_unknown_payment_acked` — Чужой счёт повторами не появится — подтверждаем доставку., `test_webhook_non_payment_event_acked`, `test_webhook_expired_marks_expired`, `test_webhook_refund_requires_manual_review`, `test_webhook_signature_ok`, `test_webhook_signature_bad`, `test_webhook_signature_no_secret` — Без секрета HMAC считался бы от известного тела — подпись подделал бы кто угодно., `test_webhook_signature_uses_raw_body` — Подпись считается от сырого тела, а не от пере-сериализованного JSON., `test_is_test_key_detects_prefix` — Среда определяется ключом: lpk_test_ — песочница, lpk_live_ — бой., `test_api_check_with_test_key_never_credits` — Сверка по тестовому ключу видит paid, но баланс не начисляет.
 - `tests/services/test_payment_service_modularity.py` — Python-модуль
   Классы: нет
   Функции: `test_payment_service_mro_contains_all_mixins` — Убеждаемся, что сервис действительно включает все mixin-классы., `test_payment_service_exposes_provider_methods` — Каждый mixin обязан добавить публичный метод в PaymentService.

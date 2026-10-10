@@ -1124,7 +1124,7 @@ class Settings(BaseSettings):
     LIRPAY_PROJECT_ID: str | None = None  # UUID одобренного проекта (GET /projects)
     LIRPAY_BASE_URL: str = 'https://lirpay.org'
     LIRPAY_DISPLAY_NAME: str = 'LirPay'
-    LIRPAY_CURRENCY: str = 'RUB'  # учёт бота рублёвый: не менять на USD/EUR без конвертации
+    LIRPAY_CURRENCY: str = 'RUB'
     LIRPAY_MIN_AMOUNT_KOPEKS: int = 10000  # 100₽
     LIRPAY_MAX_AMOUNT_KOPEKS: int = 10000000  # 100 000₽
     LIRPAY_WEBHOOK_PATH: str = '/lirpay-webhook'
