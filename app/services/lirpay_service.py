@@ -32,11 +32,6 @@ logger = structlog.get_logger(__name__)
 _KOPEKS_IN_RUBLE = Decimal(100)
 
 
-# Способы, которые можно запросить одним методом (method_mode=single).
-# По умолчанию используется multi — покупатель выбирает способ на странице.
-LIRPAY_METHODS = ('sbp', 'card', 'crypto')
-
-
 class LirPayAPIError(Exception):
     """LirPay ответил ошибкой (400/401/403/404/409/422/5xx)."""
 
@@ -204,16 +199,6 @@ class LirPayService:
             raise LirPayNetworkError(str(error)) from error
 
     # ------------------------------------------------------------------
-    # Проекты
-    # ------------------------------------------------------------------
-
-    async def list_projects(self) -> list[dict[str, Any]]:
-        """GET /projects — одобренные проекты (нужен UUID для payment link)."""
-        data = await self._request('GET', '/projects')
-        items = data.get('items') or data.get('projects') or []
-        return items if isinstance(items, list) else []
-
-    # ------------------------------------------------------------------
     # Payment links
     # ------------------------------------------------------------------
 
@@ -296,27 +281,6 @@ class LirPayService:
         Публичные статусы: ``active`` / ``in_progress`` / ``paid`` / ``expired``.
         """
         return await self._request('GET', f'/payment-links/{public_id}', allow_404=True)
-
-    async def cancel_payment_link(self, public_id: str, *, idempotency_key: str) -> dict[str, Any] | None:
-        """POST /payment-links/{public_id}/cancel — деактивировать неоплаченную ссылку."""
-        return await self._request(
-            'POST',
-            f'/payment-links/{public_id}/cancel',
-            idempotency_key=idempotency_key,
-        )
-
-    # ------------------------------------------------------------------
-    # Транзакции
-    # ------------------------------------------------------------------
-
-    async def list_transactions(
-        self,
-        *,
-        page: int = 1,
-        limit: int = 100,
-    ) -> dict[str, Any] | None:
-        """GET /transactions — история платежей окружения ключа."""
-        return await self._request('GET', '/transactions', params={'page': page, 'limit': limit})
 
     # ------------------------------------------------------------------
     # Подпись вебхуков

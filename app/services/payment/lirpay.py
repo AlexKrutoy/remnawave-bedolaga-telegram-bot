@@ -214,10 +214,14 @@ class LirPayPaymentMixin:
             if payment is None and lirpay_payment_id:
                 payment = await lirpay_crud.get_lirpay_payment_by_invoice_id(db, str(lirpay_payment_id))
 
+            fallback_ambiguous = False
             if payment is None and customer_id:
                 # Ищем единственный неоплаченный платёж этого покупателя на
                 # такую сумму: наш order_id в теле вебхука не приходит, а
-                # customer_id мы передаём при создании ссылки.
+                # customer_id мы передаём при создании ссылки. Выборка сужена
+                # свежими pending-платежами (24ч), а не всей историей.
+                from datetime import UTC, datetime, timedelta
+
                 from sqlalchemy import select
 
                 from app.database.models import LirPayPayment
@@ -225,7 +229,12 @@ class LirPayPaymentMixin:
                 received_kopeks = amount_to_kopeks(amount_raw)
                 if received_kopeks is not None:
                     try:
-                        result = await db.execute(select(LirPayPayment).where(LirPayPayment.is_paid == False))
+                        cutoff = datetime.now(UTC) - timedelta(hours=24)
+                        result = await db.execute(
+                            select(LirPayPayment)
+                            .where(LirPayPayment.is_paid == False)
+                            .where(LirPayPayment.created_at >= cutoff)
+                        )
                         candidates = [
                             candidate
                             for candidate in result.scalars().all()
@@ -234,6 +243,17 @@ class LirPayPaymentMixin:
                         ]
                         if len(candidates) == 1:
                             payment = candidates[0]
+                        elif len(candidates) > 1:
+                            # Несколько незавершённых ссылок на одну сумму —
+                            # не подтверждаем доставку: пусть LirPay повторит,
+                            # а фоновая сверка найдёт счёт по public_id.
+                            fallback_ambiguous = True
+                            logger.error(
+                                'LirPay callback: неоднозначный матч по customer_id+сумме',
+                                customer_id=customer_id,
+                                amount_kopeks=received_kopeks,
+                                candidates=[candidate.order_id for candidate in candidates],
+                            )
                     except Exception as search_error:
                         # Фолбэк не должен ломать доставку: не нашли — работаем
                         # как при «платёж не найден» ниже.
@@ -244,6 +264,10 @@ class LirPayPaymentMixin:
                         )
 
             if payment is None:
+                if fallback_ambiguous:
+                    # Деньги прошли, но однозначно привязать их не вышло —
+                    # просим повторную доставку, а не молча подтверждаем.
+                    return False
                 # Чужой счёт повторами не появится — подтверждаем доставку.
                 logger.warning(
                     'LirPay callback: платеж не найден',
@@ -252,6 +276,15 @@ class LirPayPaymentMixin:
                     customer_id=customer_id,
                 )
                 return True
+
+            # Блокируем строку ДО применения успеха: вебхук и фоновая сверка
+            # могут прийти одновременно, и без FOR UPDATE двойное зачисление
+            # останавливал бы только UNIQUE(external_id, payment_method).
+            locked = await lirpay_crud.get_lirpay_payment_by_id_for_update(db, payment.id)
+            if not locked:
+                logger.error('LirPay: не удалось заблокировать платёж', payment_id=payment.id)
+                return False
+            payment = locked
 
             # Режим ключа: live-события приходят только live-ключу, но
             # тестовое окружение «оплачивает» эмулятором без денег — реальный
@@ -318,6 +351,7 @@ class LirPayPaymentMixin:
                     payload=payload,
                     amount_raw=amount_raw,
                     lirpay_payment_id=str(lirpay_payment_id) if lirpay_payment_id else None,
+                    currency_raw=_field('currency', 'currency_code'),
                 )
 
             # Неизвестное событие/статус — подтверждаем и логируем.
@@ -341,9 +375,30 @@ class LirPayPaymentMixin:
         payload: dict[str, Any],
         amount_raw: Any,
         lirpay_payment_id: str | None,
+        currency_raw: Any = None,
     ) -> bool:
-        """Сверяет сумму и зачисляет оплату. Блокировка строки уже взята."""
+        """Сверяет сумму и валюту, зачисляет оплату. Блокировка строки уже взята."""
         lirpay_crud = import_module('app.database.crud.lirpay')
+
+        # Учёт у бота — рублёвый. Если провайдер провёл счёт в другой валюте,
+        # копейки из суммы interpretировать нельзя: 10.00 USD ≠ 1000 копеек.
+        received_currency = str(currency_raw or '').strip().upper()
+        expected_currency = (payment.currency or 'RUB').strip().upper()
+        if received_currency and received_currency != expected_currency:
+            logger.error(
+                'LirPay currency mismatch',
+                expected=expected_currency,
+                received=received_currency,
+                order_id=payment.order_id,
+            )
+            await lirpay_crud.update_lirpay_payment_status(
+                db=db,
+                payment=payment,
+                status='amount_mismatch',
+                is_paid=False,
+                callback_payload=payload,
+            )
+            return False
 
         received_kopeks = amount_to_kopeks(amount_raw)
         if received_kopeks is None:
@@ -653,7 +708,25 @@ class LirPayPaymentMixin:
                         )
                     return {'payment': payment, 'status': payment.status or 'pending', 'is_paid': False}
 
-                # Сверяем сумму так же строго, как в вебхуке.
+                # Сверяем сумму и валюту так же строго, как в вебхуке.
+                received_currency = str(status_data.get('currency') or '').strip().upper()
+                expected_currency = (payment.currency or 'RUB').strip().upper()
+                if received_currency and received_currency != expected_currency:
+                    logger.error(
+                        'LirPay currency mismatch (API check)',
+                        expected=expected_currency,
+                        received=received_currency,
+                        order_id=payment.order_id,
+                    )
+                    await lirpay_crud.update_lirpay_payment_status(
+                        db=db,
+                        payment=payment,
+                        status='amount_mismatch',
+                        is_paid=False,
+                        callback_payload={'check_source': 'api', 'lirpay_status_data': status_data},
+                    )
+                    return {'payment': payment, 'status': 'amount_mismatch', 'is_paid': False}
+
                 amount_raw = status_data.get('amount', status_data.get('expected_amount'))
                 received_kopeks = amount_to_kopeks(amount_raw)
                 if received_kopeks is None:
@@ -715,6 +788,3 @@ class LirPayPaymentMixin:
 # может найти уже оплаченный счёт позже локального таймаута, и деньги
 # нельзя забрать без зачисления.
 LIRPAY_FINAL_STATUSES = frozenset({'amount_mismatch', 'declined', 'refunded', 'error'})
-
-# Статусы, при которых счёт ещё может быть оплачен (фоновая сверка по API).
-LIRPAY_PENDING_STATUSES = frozenset({'pending'})
